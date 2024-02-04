@@ -1,18 +1,40 @@
-import React, { useState } from "react";
-import '../components/homepage.css'; // Import the CSS file where you put the styles
+// Homepage.js
+import React, { useState, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
+import '../components/homepage.css';
 
 const Homepage = () => {
     const [search, setSearch] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [jobs, setJobs] = useState([]);
+    const [accessToken, setAccessToken] = useState("");
+    //const navigate = useNavigate();
+
+    useEffect(() => {
+        retrieveAccessToken();
+    }, []);
+
+    const retrieveAccessToken = () => {
+        const urlParams = new URLSearchParams(window.location.hash.substring(1));
+        const accesstoken = urlParams.get('access_token');
+        console.log('Access Token:', accesstoken);
+        if (accesstoken) {
+            setAccessToken(accesstoken);
+        } else {
+            // Token not present or expired, handle refresh logic here
+            // Perform the necessary steps to refresh the token from your authentication server
+            // Example:
+            // refreshToken().then((newToken) => setAccessToken(newToken));
+        }
+    };
 
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         const year = date.getFullYear();
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
         const day = date.getDate().toString().padStart(2, '0');
-        return `${year}${month}${day}`;
+        return `${year}-${month}-${day}`;
     };
 
     const fetchData = async () => {
@@ -21,7 +43,15 @@ const Homepage = () => {
             const formattedEndDate = formatDate(endDate);
 
             const apiUrl = `https://rfrukmmeeb.execute-api.eu-west-1.amazonaws.com/DEV/invoice?invoiceNumber=${search}&startDate=${formattedStartDate}&endDate=${formattedEndDate}`;
-            const response = await fetch(apiUrl);
+
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    // Include other headers if needed
+                },
+            });
 
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
@@ -29,11 +59,9 @@ const Homepage = () => {
 
             const data = await response.json();
             console.log("Raw data from API:", data);
-            console.log(formattedStartDate, formattedEndDate);
 
             const jobsArray = JSON.parse(data.body) || [];
             setJobs(jobsArray);
-
         } catch (error) {
             console.error("Error fetching jobs:", error);
         }
@@ -41,16 +69,27 @@ const Homepage = () => {
 
     const handleDownloadClick = async (s3_object_name) => {
         try {
-            window.location.href =  `https://rfrukmmeeb.execute-api.eu-west-1.amazonaws.com/DEV/download?S3_Object_Name=${s3_object_name}`;
-            
+            const downloadUrl = `https://rfrukmmeeb.execute-api.eu-west-1.amazonaws.com/DEV/download?S3_Object_Name=${s3_object_name}`;
+
+            const response = await fetch(downloadUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    // Include other headers if needed
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            // Handle the download logic, e.g., opening the response in a new window
+            // You may need to customize this based on your specific download requirements
+            window.location.href = downloadUrl;
         } catch (error) {
             console.error("Error downloading file:", error);
         }
-    };
-    
-
-    const handleGoClick = () => {
-        fetchData();
     };
 
     return (
@@ -80,7 +119,7 @@ const Homepage = () => {
                         onChange={(e) => setEndDate(e.target.value)}
                     />
                 </div>
-                <button className="searchbtn" type="button" onClick={handleGoClick}>Search</button>
+                <button className="searchbtn" type="button" onClick={fetchData}>Search</button>
             </div>
 
             {(jobs.length !== 0 || startDate.length !== 0) && (
@@ -121,7 +160,10 @@ const Homepage = () => {
             )}
 
             <div className="buttonparent">
-                <div className="button" onClick={() => { console.log("click on logout"); }} data-tooltip="Size: 20Mb">
+                <div className="button" onClick={() =>{
+                    window.location.href = 'redirect link of login page';
+                    localStorage.removeItem('accessToken');
+                    }} data-tooltip="Size: 20Mb">
                     <div className="button-wrapper">
                         <div className="text">Logout</div>
                     </div>
