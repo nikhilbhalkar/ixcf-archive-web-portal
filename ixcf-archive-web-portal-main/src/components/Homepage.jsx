@@ -1,6 +1,8 @@
-// Homepage.js
 import React, { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import '../components/homepage.css';
 
 const Homepage = () => {
@@ -8,26 +10,28 @@ const Homepage = () => {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [jobs, setJobs] = useState([]);
-    const [accessToken, setAccessToken] = useState("");
-    //const navigate = useNavigate();
+    //const [accessToken, setAccessToken] = useState("");
+    const navigate = useNavigate();
 
-    useEffect(() => {
-        retrieveAccessToken();
-    }, []);
+    const location = useLocation();
+    const receivedDataToken = location.state?.data;
 
-    const retrieveAccessToken = () => {
-        const urlParams = new URLSearchParams(window.location.hash.substring(1));
-        const accesstoken = urlParams.get('access_token');
-        console.log('Access Token:', accesstoken);
-        if (accesstoken) {
-            setAccessToken(accesstoken);
-        } else {
-            // Token not present or expired, handle refresh logic here
-            // Perform the necessary steps to refresh the token from your authentication server
-            // Example:
-            // refreshToken().then((newToken) => setAccessToken(newToken));
-        }
-    };
+    //const { receivedDataToken } = useParams();
+
+    // useEffect(() => {
+    //     retrieveAccessToken();
+    // }, []);
+
+    // const retrieveAccessToken = () => {
+    //     const urlSearchParams = new URLSearchParams(window.location.search);
+    //     const tokenFromUrl = urlSearchParams.get("access_token");
+    //     console.log(tokenFromUrl);
+    //     if (tokenFromUrl) {
+    //         setAccessToken(tokenFromUrl);
+    //     } else {
+    //         navigate("/login");
+    //     }
+    // };
 
     const formatDate = (dateString) => {
         const date = new Date(dateString);
@@ -38,18 +42,17 @@ const Homepage = () => {
     };
 
     const fetchData = async () => {
+        console.log("access token =",receivedDataToken);
         try {
             const formattedStartDate = formatDate(startDate);
             const formattedEndDate = formatDate(endDate);
-
             const apiUrl = `https://rfrukmmeeb.execute-api.eu-west-1.amazonaws.com/DEV/invoice?invoiceNumber=${search}&startDate=${formattedStartDate}&endDate=${formattedEndDate}`;
 
             const response = await fetch(apiUrl, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`,
-                    // Include other headers if needed
+                    'Authorization': `Bearer ${receivedDataToken}`,
                 },
             });
 
@@ -58,8 +61,6 @@ const Homepage = () => {
             }
 
             const data = await response.json();
-            console.log("Raw data from API:", data);
-
             const jobsArray = JSON.parse(data.body) || [];
             setJobs(jobsArray);
         } catch (error) {
@@ -75,8 +76,7 @@ const Homepage = () => {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`,
-                    // Include other headers if needed
+                    'Authorization': `Bearer ${receivedDataToken}`,
                 },
             });
 
@@ -84,9 +84,15 @@ const Homepage = () => {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
 
-            // Handle the download logic, e.g., opening the response in a new window
-            // You may need to customize this based on your specific download requirements
-            window.location.href = downloadUrl;
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = s3_object_name;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
         } catch (error) {
             console.error("Error downloading file:", error);
         }
@@ -160,10 +166,7 @@ const Homepage = () => {
             )}
 
             <div className="buttonparent">
-                <div className="button" onClick={() =>{
-                    window.location.href = 'redirect link of login page';
-                    localStorage.removeItem('accessToken');
-                    }} data-tooltip="Size: 20Mb">
+                <div className="button" onClick={() => window.location.href = '/'} data-tooltip="Size: 20Mb">
                     <div className="button-wrapper">
                         <div className="text">Logout</div>
                     </div>
